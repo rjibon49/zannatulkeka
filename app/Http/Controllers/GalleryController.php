@@ -23,7 +23,7 @@ class GalleryController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'media_library_ids' => 'required|array', // আইডিগুলো অ্যারে হিসেবে আসবে
+            'media_library_ids' => 'required|array',
             'media_library_ids.*' => 'exists:media_libraries,id',
             'status' => 'required|in:active,inactive',
         ]);
@@ -31,7 +31,7 @@ class GalleryController extends Controller
         foreach ($request->media_library_ids as $id) {
             Gallery::create([
                 'media_library_id' => $id,
-                'title' => $request->title, // চাইলে লুপের ভেতরে টাইটেলও কাস্টমাইজ করতে পারেন
+                'title' => $request->title,
                 'status' => $request->status,
             ]);
         }

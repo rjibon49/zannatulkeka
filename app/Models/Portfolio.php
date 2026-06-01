@@ -9,7 +9,6 @@ class Portfolio extends Model
 {
     use HasFactory;
 
-    // ডাটাবেসে যে ফিল্ডগুলোতে ডাটা সেভ হবে
     protected $fillable = [
         'name', 
         'designation', 
@@ -20,7 +19,7 @@ class Portfolio extends Model
         'address'
     ];
 
-    // প্রোফাইল পিকচারটি মিডিয়া লাইব্রেরি থেকে আনার রিলেশন
+    // প্রোফাইল পিকচারটি মিডিয়া লাইব্রেরি থেকে আনার রিলেশন
     public function profilePicture()
     {
         return $this->belongsTo(MediaLibrary::class, 'profile_picture_id');

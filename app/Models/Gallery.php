@@ -16,7 +16,7 @@ class Gallery extends Model
         'status',
     ];
 
-    // মিডিয়া লাইব্রেরির সাথে রিলেশন (ছবিটি পাওয়ার জন্য)
+    // মিডিয়া লাইব্রেরির সাথে রিলেশন (ছবিটি পাওয়ার জন্য)
     public function media()
     {
         return $this->belongsTo(MediaLibrary::class, 'media_library_id');

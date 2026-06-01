@@ -10,13 +10,14 @@ class Article extends Model
     use HasFactory;
 
     protected $fillable = [
-        'featured_media_id',
+        'user_id', // কে পোস্ট করেছে তা ট্র‍্যাক করার জন্য
         'title',
         'subtitle',
         'slug',
         'description',
+        'featured_image', // মাইগ্রেশন অনুযায়ী এটি স্ট্রিং হিসেবে রাখা হয়েছে
         'video_url',
-        'status', // published, draft, schedule
+        'status', // published, draft
         'published_at',
         'meta_title',
         'meta_description',
@@ -33,8 +34,9 @@ class Article extends Model
         return $this->belongsToMany(Category::class);
     }
 
-    public function featuredImage()
+    // আর্টিকেলের লেখকের (User) সাথে রিলেশন
+    public function author()
     {
-        return $this->belongsTo(MediaLibrary::class, 'featured_media_id');
+        return $this->belongsTo(User::class, 'user_id');
     }
 }

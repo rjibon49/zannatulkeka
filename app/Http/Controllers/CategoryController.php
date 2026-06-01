@@ -8,50 +8,31 @@ use Illuminate\Support\Str;
 
 class CategoryController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, Category $category = null)
     {
         $search = $request->input('search');
-        $categories = Category::when($search, function($query) use ($search) {
-            return $query->where('name', 'like', '%' . $search . '%');
-        })->latest()->paginate(5)->withQueryString();
-        $category = null;
+        $categories = Category::when($search, fn($query) => $query->where('name', 'like', '%' . $search . '%'))
+            ->latest()
+            ->paginate(5)
+            ->withQueryString();
+            
         return view('categories.index', compact('categories', 'category', 'search'));
-    }
-
-    public function create()
-    {
-        return redirect()->route('categories.index');
     }
 
     public function store(Request $request)
     {
         $request->validate([
             'name' => 'required|string|max:255|unique:categories,name',
-            'slug' => 'nullable|string|max:255|unique:categories,slug', // Slug ভ্যালিডেশন
+            'slug' => 'nullable|string|max:255|unique:categories,slug',
         ]);
 
         Category::create([
             'name' => $request->name,
-            // ইউজার Slug দিলে সেটি নেবে (slugify করে), না দিলে Name থেকে বানাবে
             'slug' => $request->slug ? Str::slug($request->slug) : Str::slug($request->name),
             'status' => $request->status ?? 'active',
         ]);
 
         return redirect()->route('categories.index')->with('success', 'Category created successfully!');
-    }
-
-    public function show(Category $category)
-    {
-        //
-    }
-
-    public function edit(Request $request, Category $category)
-    {
-        $search = $request->input('search');
-        $categories = Category::when($search, function($query) use ($search) {
-            return $query->where('name', 'like', '%' . $search . '%');
-        })->latest()->paginate(5)->withQueryString();
-        return view('categories.index', compact('categories', 'category', 'search'));
     }
 
     public function update(Request $request, Category $category)

@@ -19,10 +19,7 @@ class UserController extends Controller
                       ->orWhere('email', 'like', '%' . $search . '%');
                 });
             })
-            // লজিক: লগইন করা ইউজার যদি Super Admin না হয়, তবে Super Admin-দের হাইড করে দাও
-            ->when(!auth()->user()->isSuperAdmin(), function($query) {
-                return $query->where('role', '!=', 'super_admin');
-            })
+            ->when(!auth()->user()->isSuperAdmin(), fn($query) => $query->where('role', '!=', 'super_admin'))
             ->latest()
             ->paginate(10)
             ->withQueryString();
@@ -38,7 +35,6 @@ class UserController extends Controller
 
     public function store(Request $request)
     {
-        // Admin যেন কাউকে Super Admin বানাতে না পারে তার প্রটেকশন
         $allowedRoles = auth()->user()->isSuperAdmin() ? 'super_admin,admin,contributor' : 'admin,contributor';
 
         $request->validate([
@@ -62,7 +58,6 @@ class UserController extends Controller
 
     public function edit(User $user)
     {
-        // Admin যদি কোনোভাবে URL দিয়ে Super Admin এর এডিট পেজে যাওয়ার চেষ্টা করে, তবে ব্লক করবে
         if ($user->isSuperAdmin() && !auth()->user()->isSuperAdmin()) {
             abort(403, 'You do not have permission to edit a Super Admin.');
         }

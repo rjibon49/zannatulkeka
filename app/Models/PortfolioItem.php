@@ -10,6 +10,11 @@ class PortfolioItem extends Model
     use HasFactory;
 
     protected $fillable = [
-        'type', 'title', 'subtitle', 'period', 'url', 'description'
+        'type', 
+        'title', 
+        'subtitle', 
+        'period', 
+        'url', 
+        'description'
     ];
 }

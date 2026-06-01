@@ -31,7 +31,7 @@ class User extends Authenticatable
         ];
     }
 
-    // New Role Checker Methods
+    // Role Checker Methods
     public function isSuperAdmin()
     {
         return $this->role === 'super_admin';
@@ -51,5 +51,11 @@ class User extends Authenticatable
     public function profilePicture()
     {
         return $this->belongsTo(MediaLibrary::class, 'profile_picture_id');
+    }
+
+    // ইউজারের পোস্ট করা আর্টিকেলগুলোর রিলেশন
+    public function articles()
+    {
+        return $this->hasMany(Article::class);
     }
 }

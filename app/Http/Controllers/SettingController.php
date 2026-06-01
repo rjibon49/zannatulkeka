@@ -2,63 +2,29 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Setting;
+use App\Models\MediaLibrary;
 use Illuminate\Http\Request;
 
 class SettingController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        //
+        $setting = Setting::first() ?? new Setting();
+        $media = MediaLibrary::latest()->get();
+        return view('settings.index', compact('setting', 'media'));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
+    public function update(Request $request)
     {
-        //
-    }
+        $request->validate([
+            'heading' => 'required|string|max:255',
+            'subheading' => 'nullable|string|max:255',
+            'contact_email' => 'nullable|email|max:255',
+            'banner_media_id' => 'nullable|exists:media_libraries,id'
+        ]);
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
-    {
-        //
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        //
+        Setting::updateOrCreate(['id' => 1], $request->except('_token'));
+        return redirect()->back()->with('success', 'Settings updated successfully!');
     }
 }

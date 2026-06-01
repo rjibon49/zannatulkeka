@@ -10,57 +10,41 @@ use Illuminate\Support\Str;
 
 class ArticleController extends Controller
 {
-    // ১. আর্টিকেলের লিস্ট, সার্চ এবং ফিল্টার
     public function index(Request $request)
     {
         $search = $request->input('search');
         $categoryId = $request->input('category_id');
-        $month = $request->input('month'); // ফরম্যাট আসবে: YYYY-MM
+        $month = $request->input('month');
 
-        // ফিল্টার ড্রপডাউনে দেখানোর জন্য ক্যাটাগরিগুলো আনা হলো
         $categories = Category::where('status', 'active')->get();
 
-        $articles = Article::with(['categories', 'featuredImage'])
-            // Title দিয়ে সার্চ
-            ->when($search, function($query) use ($search) {
-                return $query->where('title', 'like', '%' . $search . '%');
-            })
-            // Category দিয়ে ফিল্টার (যেহেতু Many-to-Many রিলেশন, তাই whereHas ব্যবহার করা হয়েছে)
-            ->when($categoryId, function($query) use ($categoryId) {
-                return $query->whereHas('categories', function($q) use ($categoryId) {
-                    $q->where('categories.id', $categoryId);
-                });
-            })
-            // Month এবং Year দিয়ে ফিল্টার
+        $articles = Article::with(['categories', 'featuredImage', 'author'])
+            ->when($search, fn($query) => $query->where('title', 'like', '%' . $search . '%'))
+            ->when($categoryId, fn($query) => $query->whereHas('categories', fn($q) => $q->where('categories.id', $categoryId)))
             ->when($month, function($query) use ($month) {
-                $year = substr($month, 0, 4);
-                $monthNum = substr($month, 5, 2);
-                return $query->whereYear('created_at', $year)
-                             ->whereMonth('created_at', $monthNum);
+                return $query->whereYear('created_at', substr($month, 0, 4))
+                             ->whereMonth('created_at', substr($month, 5, 2));
             })
             ->latest()
             ->paginate(10)
-            ->withQueryString(); // পেজিনেশনে যেন ফিল্টার ডাটা হারিয়ে না যায়
+            ->withQueryString();
 
         return view('articles.index', compact('articles', 'search', 'categories', 'categoryId', 'month'));
     }
 
-    // ২. নতুন আর্টিকেল লেখার ফর্ম
     public function create()
     {
         $categories = Category::where('status', 'active')->get();
         $media = MediaLibrary::latest()->get(); 
-        
         return view('articles.create', compact('categories', 'media'));
     }
 
-    // ৩. ডাটাবেসে সেভ করা
     public function store(Request $request)
     {
         $request->validate([
             'title' => 'required|string|max:255',
             'subtitle' => 'nullable|string|max:255',
-            'categories' => 'required|array', // Multiple categories
+            'categories' => 'required|array',
             'categories.*' => 'exists:categories,id',
             'description' => 'required|string',
             'status' => 'required|in:published,draft,schedule',
@@ -68,18 +52,13 @@ class ArticleController extends Controller
             'featured_media_id' => 'nullable|exists:media_libraries,id',
         ]);
 
-        // Publish Date Logic
-        $publishDate = null;
-        if ($request->status === 'published') {
-            $publishDate = now();
-        } elseif ($request->status === 'schedule') {
-            $publishDate = $request->published_at;
-        }
+        $publishDate = $request->status === 'published' ? now() : ($request->status === 'schedule' ? $request->published_at : null);
 
         $article = Article::create([
+            'user_id' => auth()->id(),
             'featured_media_id' => $request->featured_media_id,
             'title' => $request->title,
-            'subtitle' => $request->subtitle, // সাবটাইটেল সেভ করার জন্য যুক্ত করা হয়েছে
+            'subtitle' => $request->subtitle,
             'slug' => $request->slug ? Str::slug($request->slug) : Str::slug($request->title),
             'description' => $request->description,
             'status' => $request->status,
@@ -88,22 +67,17 @@ class ArticleController extends Controller
             'meta_description' => $request->meta_description,
         ]);
 
-        // Pivot Data Save (Multiple Categories)
         $article->categories()->sync($request->categories);
-
         return redirect()->route('articles.index')->with('success', 'Article created successfully!');
     }
 
-    // ৪. এডিট ফর্ম
     public function edit(Article $article)
     {
         $categories = Category::where('status', 'active')->get();
         $media = MediaLibrary::latest()->get();
-        
         return view('articles.edit', compact('article', 'categories', 'media'));
     }
 
-    // ৫. আপডেট করা
     public function update(Request $request, Article $article)
     {
         $request->validate([
@@ -127,7 +101,7 @@ class ArticleController extends Controller
         $article->update([
             'featured_media_id' => $request->featured_media_id,
             'title' => $request->title,
-            'subtitle' => $request->subtitle, // সাবটাইটেল আপডেটের জন্য যুক্ত করা হয়েছে
+            'subtitle' => $request->subtitle,
             'slug' => $request->slug ? Str::slug($request->slug) : Str::slug($request->title),
             'description' => $request->description,
             'status' => $request->status,
@@ -137,11 +111,9 @@ class ArticleController extends Controller
         ]);
 
         $article->categories()->sync($request->categories);
-
         return redirect()->route('articles.index')->with('success', 'Article updated successfully!');
     }
 
-    // ৬. ডিলিট করা
     public function destroy(Article $article)
     {
         $article->delete();

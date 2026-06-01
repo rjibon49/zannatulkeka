@@ -9,10 +9,15 @@ class Category extends Model
 {
     use HasFactory;
 
-    // ডাটাবেসের এই ফিল্ডগুলোতে আমরা সরাসরি ডাটা ইনসার্ট করতে পারবো
     protected $fillable = [
         'name',
         'slug',
         'status'
     ];
+
+    // একটি ক্যাটাগরিতে অনেক আর্টিকেল থাকতে পারে
+    public function articles()
+    {
+        return $this->belongsToMany(Article::class);
+    }
 }
