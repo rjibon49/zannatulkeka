@@ -6,26 +6,38 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('galleries', function (Blueprint $table) {
             $table->id();
-            $table->string('title')->nullable();
-            // মিডিয়া লাইব্রেরির সাথে সঠিক রিলেশন
-            $table->foreignId('media_library_id')->constrained('media_libraries')->onDelete('cascade');
-            // যদি গ্যালারি আর্টিকেলের সাথে সম্পর্কিত রাখতে চান (ঐচ্ছিক)
-            $table->foreignId('article_id')->nullable()->constrained('articles')->onDelete('cascade');
+
+            $table->string('title');
+            $table->string('slug')->unique();
+
+            $table->text('description')->nullable();
+
+            $table->foreignId('cover_media_id')
+                ->nullable()
+                ->constrained('media_libraries')
+                ->nullOnDelete();
+
+            $table->foreignId('article_id')
+                ->nullable()
+                ->constrained('articles')
+                ->nullOnDelete();
+
+            $table->string('meta_title')->nullable();
+            $table->text('meta_description')->nullable();
+
+            $table->unsignedInteger('sort_order')->default(0);
             $table->enum('status', ['active', 'inactive'])->default('active');
+
             $table->timestamps();
+
+            $table->index(['status', 'sort_order']);
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('galleries');

@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
 use App\Models\MediaLibrary;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules;
 
 class UserController extends Controller
@@ -13,98 +14,150 @@ class UserController extends Controller
     public function index(Request $request)
     {
         $search = $request->input('search');
-        $users = User::with('profilePicture')->when($search, function($query) use ($search) {
-                return $query->where(function($q) use ($search) {
+        $role = $request->input('role');
+        $status = $request->input('status');
+
+        $users = User::with('profilePicture')
+            ->when($search, function ($query) use ($search) {
+                $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', '%' . $search . '%')
-                      ->orWhere('email', 'like', '%' . $search . '%');
+                        ->orWhere('email', 'like', '%' . $search . '%');
                 });
             })
-            ->when(!auth()->user()->isSuperAdmin(), fn($query) => $query->where('role', '!=', 'super_admin'))
+            ->when($role, function ($query) use ($role) {
+                $query->where('role', $role);
+            })
+            ->when($status, function ($query) use ($status) {
+                $query->where('status', $status);
+            })
             ->latest()
             ->paginate(10)
             ->withQueryString();
 
-        return view('users.index', compact('users', 'search'));
+        $roles = User::roles();
+
+        return view('users.index', compact('users', 'search', 'role', 'status', 'roles'));
     }
 
     public function create()
     {
-        $media = MediaLibrary::latest()->get();
-        return view('users.create', compact('media'));
+        $media = MediaLibrary::where('type', 'image')
+            ->latest()
+            ->get();
+
+        $roles = User::roles();
+
+        return view('users.create', compact('media', 'roles'));
     }
 
     public function store(Request $request)
     {
-        $allowedRoles = auth()->user()->isSuperAdmin() ? 'super_admin,admin,contributor' : 'admin,contributor';
-
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'role' => 'required|in:' . $allowedRoles,
-            'profile_picture_id' => 'nullable|exists:media_libraries,id',
+            'role' => ['required', Rule::in(User::roles())],
+            'profile_picture_id' => ['nullable', 'exists:media_libraries,id'],
+            'status' => ['required', Rule::in(['active', 'inactive', 'blocked'])],
         ]);
 
         User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'role' => $request->role,
-            'profile_picture_id' => $request->profile_picture_id,
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
+            'role' => $validated['role'],
+            'profile_picture_id' => $validated['profile_picture_id'] ?? null,
+            'status' => $validated['status'],
         ]);
 
-        return redirect()->route('users.index')->with('success', 'User created successfully!');
+        return redirect()
+            ->route('users.index')
+            ->with('success', 'User created successfully.');
     }
 
     public function edit(User $user)
     {
-        if ($user->isSuperAdmin() && !auth()->user()->isSuperAdmin()) {
-            abort(403, 'You do not have permission to edit a Super Admin.');
-        }
+        $media = MediaLibrary::where('type', 'image')
+            ->latest()
+            ->get();
 
-        $media = MediaLibrary::latest()->get();
-        return view('users.edit', compact('user', 'media'));
+        $roles = User::roles();
+
+        return view('users.edit', compact('user', 'media', 'roles'));
     }
 
     public function update(Request $request, User $user)
     {
-        if ($user->isSuperAdmin() && !auth()->user()->isSuperAdmin()) {
-            abort(403, 'You do not have permission to update a Super Admin.');
+        if ($user->isSuperAdmin() && !$this->canModifySuperAdmin($user)) {
+            abort(403, 'You cannot modify this Super Admin account.');
         }
 
-        $allowedRoles = auth()->user()->isSuperAdmin() ? 'super_admin,admin,contributor' : 'admin,contributor';
-
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => [
+                'required',
+                'string',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->ignore($user->id),
+            ],
             'password' => ['nullable', 'confirmed', Rules\Password::defaults()],
-            'role' => 'required|in:' . $allowedRoles,
-            'profile_picture_id' => 'nullable|exists:media_libraries,id',
+            'role' => ['required', Rule::in(User::roles())],
+            'profile_picture_id' => ['nullable', 'exists:media_libraries,id'],
+            'status' => ['required', Rule::in(['active', 'inactive', 'blocked'])],
         ]);
 
-        $user->name = $request->name;
-        $user->email = $request->email;
-        $user->role = $request->role;
-        $user->profile_picture_id = $request->profile_picture_id;
-        
-        if ($request->filled('password')) {
-            $user->password = Hash::make($request->password);
+        if ($user->isSuperAdmin() && $validated['role'] !== User::ROLE_SUPER_ADMIN) {
+            if (User::where('role', User::ROLE_SUPER_ADMIN)->count() <= 1) {
+                return redirect()
+                    ->back()
+                    ->with('error', 'At least one Super Admin account is required.');
+            }
         }
+
+        $user->name = $validated['name'];
+        $user->email = $validated['email'];
+        $user->role = $validated['role'];
+        $user->profile_picture_id = $validated['profile_picture_id'] ?? null;
+        $user->status = $validated['status'];
+
+        if (!empty($validated['password'])) {
+            $user->password = Hash::make($validated['password']);
+        }
+
         $user->save();
 
-        return redirect()->route('users.index')->with('success', 'User updated successfully!');
+        return redirect()
+            ->route('users.index')
+            ->with('success', 'User updated successfully.');
     }
 
     public function destroy(User $user)
     {
-        if (auth()->id() === $user->id) {
-            return redirect()->route('users.index')->with('error', 'You cannot delete yourself!');
+        if ((int) auth()->id() === (int) $user->id) {
+            return redirect()
+                ->route('users.index')
+                ->with('error', 'You cannot delete your own account.');
         }
-        if ($user->isSuperAdmin() && !auth()->user()->isSuperAdmin()) {
-            abort(403, 'You do not have permission to delete a Super Admin.');
+
+        if ($user->isSuperAdmin()) {
+            if (User::where('role', User::ROLE_SUPER_ADMIN)->count() <= 1) {
+                return redirect()
+                    ->route('users.index')
+                    ->with('error', 'At least one Super Admin account is required.');
+            }
         }
 
         $user->delete();
-        return redirect()->route('users.index')->with('success', 'User deleted successfully!');
+
+        return redirect()
+            ->route('users.index')
+            ->with('success', 'User deleted successfully.');
+    }
+
+    private function canModifySuperAdmin(User $user): bool
+    {
+        return auth()->user()?->isSuperAdmin() && (int) auth()->id() === (int) $user->id
+            || auth()->user()?->isSuperAdmin();
     }
 }

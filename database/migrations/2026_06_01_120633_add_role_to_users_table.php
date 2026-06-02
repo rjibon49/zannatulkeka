@@ -6,17 +6,27 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Run the migrations.
+     */
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            // Default role thakbe 'subscriber'
-            $table->string('role')->default('subscriber')->after('email'); 
+            $table->enum('role', ['super_admin', 'admin', 'contributor'])
+                ->default('contributor')
+                ->after('email');
+
+            $table->index('role');
         });
     }
 
+    /**
+     * Reverse the migrations.
+     */
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
+            $table->dropIndex(['role']);
             $table->dropColumn('role');
         });
     }

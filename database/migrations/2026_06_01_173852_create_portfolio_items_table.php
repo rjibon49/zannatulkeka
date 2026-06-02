@@ -10,14 +10,60 @@ return new class extends Migration
     {
         Schema::create('portfolio_items', function (Blueprint $table) {
             $table->id();
-            // type এর মধ্যে থাকবে: work_identity, achievement, book, experience, publication
-            $table->string('type'); 
-            $table->string('title'); // বইয়ের নাম / পদের নাম / অ্যাওয়ার্ডের নাম
-            $table->string('subtitle')->nullable(); // পাবলিশার / কোম্পানির নাম
-            $table->string('period')->nullable(); // সাল বা সময়কাল
-            $table->string('url')->nullable(); // পেপার বা কলামের লিঙ্ক
-            $table->text('description')->nullable(); // বিস্তারিত
+
+            $table->foreignId('portfolio_id')
+                ->nullable()
+                ->constrained('portfolios')
+                ->cascadeOnDelete();
+
+            /*
+            |--------------------------------------------------------------------------
+            | Type Examples
+            |--------------------------------------------------------------------------
+            | work_identity, education, experience, skill, service, project,
+            | achievement, award, book, publication, certificate, social_link
+            */
+            $table->enum('type', [
+                'work_identity',
+                'education',
+                'experience',
+                'skill',
+                'service',
+                'project',
+                'achievement',
+                'award',
+                'book',
+                'publication',
+                'certificate',
+                'social_link'
+            ]);
+
+            $table->string('title');
+            $table->string('subtitle')->nullable();
+
+            $table->string('organization_name')->nullable();
+            $table->string('location')->nullable();
+
+            $table->date('start_date')->nullable();
+            $table->date('end_date')->nullable();
+            $table->string('period')->nullable();
+
+            $table->string('url')->nullable();
+
+            $table->foreignId('media_library_id')
+                ->nullable()
+                ->constrained('media_libraries')
+                ->nullOnDelete();
+
+            $table->longText('description')->nullable();
+
+            $table->unsignedInteger('sort_order')->default(0);
+            $table->boolean('is_featured')->default(false);
+            $table->enum('status', ['active', 'inactive'])->default('active');
+
             $table->timestamps();
+
+            $table->index(['portfolio_id', 'type', 'status', 'sort_order']);
         });
     }
 

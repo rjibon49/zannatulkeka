@@ -6,24 +6,27 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Run the migrations.
+     */
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            // মিডিয়া লাইব্রেরির সাথে রিলেশন তৈরি করা হলো
             $table->foreignId('profile_picture_id')
-                  ->nullable()
-                  ->after('role')
-                  ->constrained('media_libraries')
-                  ->nullOnDelete(); 
-                  // nullOnDelete() এর মানে হলো মিডিয়া থেকে ছবি ডিলিট হয়ে গেলেও ইউজার ডিলিট হবে না, শুধু ইউজারের ছবির ঘরটি ফাঁকা (null) হয়ে যাবে।
+                ->nullable()
+                ->after('role')
+                ->constrained('media_libraries')
+                ->nullOnDelete();
         });
     }
 
+    /**
+     * Reverse the migrations.
+     */
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropForeign(['profile_picture_id']);
-            $table->dropColumn('profile_picture_id');
+            $table->dropConstrainedForeignId('profile_picture_id');
         });
     }
 };
